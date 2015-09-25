@@ -19,24 +19,29 @@ of 1 ms).
 
 ## Build and run:
 
-mvn install
-java -jar target/postverticle-fat.jar
+    mvn install
+    java -jar target/postverticle-fat.jar
 
 The program will listen on 8080. Modify as necessary.
 
 ## Demonstrating the problem
 
 prepare a file
-dd if=/dev/zero of=10m count=10 bs=1048576
+
+    dd if=/dev/zero of=10m count=10 bs=1048576
 
 Posting a file of size 10MB should take < 2 seconds on any web server.
 If things fail it will take at least 10 times longer.
 
-wget --postfile=10m http://localhost:8080
+    wget --post-file=10m http://localhost:8080
+
 or
-yaz-url -p10m http://localhost:8080
+
+    yaz-url -p10m http://localhost:8080
+
 or
-netcat - see netcat-client/client.sh
+
+    netcat - see netcat-client/client.sh
 
 vert.x-3.0.0 uses netty 4.0.28 by default. We've tried with netty
 4.0.29, 4.0.30, 4.0.31 with similar results (apparent slowness on some

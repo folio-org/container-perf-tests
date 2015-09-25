@@ -1,18 +1,18 @@
 # Postverticle
 
-Small program to demonstrate slowness of HTTP POST on some platforms
-for Vert.x.
+Small program to demonstrate unacceptable slowness of HTTP POST.
 
 We don't know if the problem is in our program, Vert.x, netty or lower down.
 
 We have seen problem on Debian jessie - x64 and Ubuntu 15.04. Posting of
 a 10 MB file takes 1-30 seconds on these systems. It varies greatly
-depending on how rapid the HTTP Client sends data to the server.
+depending on how rapid the HTTP client sends data to the server.
 
 The problem does not seem to be present on Debian wheezy or CentOS 6.
-On the slowest platform we've tried - a Celeron 420 server running Debian
-Wheezy - posting a 10 MB file is performed in less than 0.5 second.
-Most modern hardware will do it at least 10 times faster than that.
+On the slowest hardware platform we've tried - a Celeron 420 server
+running Debian Wheezy - posting a 10 MB file is performed in less than
+0.5 second (acceptable). Most modern hardware should do it at least 10
+times faster than that.
 
 ## Build and run:
 

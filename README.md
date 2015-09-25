@@ -4,11 +4,12 @@ Small program to demonstrate unacceptable slowness of HTTP POST.
 
 We don't know if the problem is in our program, Vert.x, netty or lower down.
 
-We have seen problem on Debian jessie - x64 and Ubuntu 15.04. Posting of
+We have seen problem on Debian Jessie - x64 and Ubuntu 15.04. Posting of
 a 10 MB file takes 1-30 seconds on these systems. It varies greatly
-depending on how rapid the HTTP client sends data to the server.
+depending on how rapid the HTTP client sends data to the server (e.g curl vs wget).
 
-The problem does not seem to be present on Debian wheezy or CentOS 6.
+The problem does not seem to be present on Debian Wheezy or CentOS 6, 
+both shipping wih an older kernel.
 On the slowest hardware platform we've tried - a Celeron 420 server
 running Debian Wheezy - posting a 10 MB file is performed in less than
 0.5 second (acceptable). Most modern hardware should do it at least 10
@@ -19,7 +20,7 @@ times faster than that.
     mvn install
     java -jar target/postverticle-fat.jar
 
-The program will listen on 8080. Modify as necessary.
+The program will listen on 8080. Modify as necessary. The program counts bytes in the request input stream and prints the value.
 
 ## Demonstrating the problem
 
@@ -28,7 +29,7 @@ prepare a file
     dd if=/dev/zero of=10m count=10 bs=1048576
 
 Posting a file of size 10MB should take < 0.1 seconds on modern
-hardware and any web server.
+hardware and any web server, however od Debian Jessie/Ubuntu 15.04 it takes 30s with some clients. 
 
     wget --post-file=10m http://localhost:8080
 
@@ -43,6 +44,10 @@ or
 vert.x-3.0.0 uses netty 4.0.28 by default. We've tried with netty
 4.0.29, 4.0.30, 4.0.31 with similar results (apparent slowness on some
 platforms).
+
+
+Also Java 8 build version does not seem to have any influence on the results (we have been testing
+wiht b66 avaialbe in jessie-backports).
 
 ## Analyzing the behavior with strace
 
@@ -147,3 +152,7 @@ a centos6 server where everything works in order, it seems:
     10:54:29.815937 read(41, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 43690) = 43690 <0.000035>
 
 The read calls here are not "cut-off".. calling epoll_wait is OK because it's in level triggered.
+
+## PS
+
+We have recast the test code to netty (same version as used by vert.x) and node.js but could not reproduce the problem with unnaceptable slowness.

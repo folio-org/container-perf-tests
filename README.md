@@ -27,7 +27,7 @@ The program will listen on 8080. Modify as necessary.
 ## Demonstrating the problem
 
 prepare a file
-dd if=/dev/zero of=10m count=10 size=1048576
+dd if=/dev/zero of=10m count=10 bs=1048576
 
 Posting a file of size 10MB should take < 2 seconds on any web server.
 If things fail it will take at least 10 times longer.

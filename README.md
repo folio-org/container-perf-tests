@@ -95,8 +95,10 @@ Log from point of setting up epoll FDs and leading POST.
     13:39:25.759313 read(74, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 43690) = 18880 <0.000076>
     13:39:25.759808 epoll_wait(24, {{EPOLLIN, {u32=74, u64=3853375938494538}}}, 8192, 770) = 1 <0.201836>
 
-Some epoll_wait are extremsly slow: 0.20 seconds. Here's the faster one,
-but still the it was one call that takes 0.35 seconds.
+Some epoll_wait calls are slow: 0.20 seconds. They appear all along the way - making the whole operation take around 20 seconds.
+
+Here's the faster one with a total response time of about a second.
+It has a call to epoll_wait that takes 0.35 seconds to complete.
 
     13:37:34.778689 epoll_wait(24, {{EPOLLIN, {u32=73, u64=8135600822441476169}}}, 8192, 1000) = 1 <0.352702>
     13:37:35.182710 epoll_ctl(24, EPOLL_CTL_ADD, 74, {EPOLLIN, {u32=74, u64=3853375938494538}}) = 0 <0.000024>

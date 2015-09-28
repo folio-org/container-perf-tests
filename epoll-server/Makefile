@@ -1,7 +1,12 @@
 CFLAGS=-Wall
 
+all: epoll-server sync-server
+
 epoll-server: epoll-server.o
 	$(CC) $< -o $@
 
+sync-server: sync-server.o
+	$(CC) $< -o $@
+
 clean:
-	rm -f epoll-server *.o
+	rm -f sync-server epoll-server *.o

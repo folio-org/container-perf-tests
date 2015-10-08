@@ -1,4 +1,6 @@
-# Postverticle
+# File uplaod perf test
+
+## Vert.x file upload performance
 
 Small program to demonstrate unacceptable slowness of HTTP POST.
 
@@ -15,14 +17,15 @@ running Debian Wheezy - posting a 10 MB file is performed in less than
 0.5 second (acceptable). Most modern hardware should do it at least 10
 times faster than that.
 
-## Build and run:
-
+### Build and run:
+    
+    cd vertx
     mvn install
-    java -jar target/postverticle-fat.jar
+    java -jar target/vertx-upload-fat.jar
 
 The program will listen on 8080. Modify as necessary. The program counts bytes in the request input stream and prints the value.
 
-## Demonstrating the problem
+### Demonstrating the problem
 
 prepare a file
 
@@ -49,7 +52,7 @@ platforms).
 Also Java 8 build version does not seem to have any influence on the results (we have been testing
 wiht b66 avaialbe in jessie-backports).
 
-## Analyzing the behavior with strace
+### Analyzing the behavior with strace
 
 With:
 

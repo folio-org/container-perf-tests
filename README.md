@@ -1,4 +1,4 @@
-# File uplaod perf test
+# File upload perf test
 
 ## Vert.x file upload performance
 
@@ -158,4 +158,4 @@ The read calls here are not "cut-off".. calling epoll_wait is OK because it's in
 
 ## PS
 
-We have recast the test code to netty (same version as used by vert.x) and node.js but could not reproduce the problem with unnaceptable slowness.
+We have recast the test code to netty (same version as used by vert.x) and node.js but could not reproduce the problem with unacceptable slowness.

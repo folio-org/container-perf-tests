@@ -9,70 +9,9 @@
 #include <sys/epoll.h>
 #include <errno.h>
 
+#include "common.h"
+
 #define MAXEVENTS 64
-
-static int make_socket_non_blocking(int sfd)
-{
-  int flags, s;
-
-  flags = fcntl(sfd, F_GETFL, 0);
-  if (flags == -1)
-    {
-      perror("fcntl");
-      return -1;
-    }
-
-  flags |= O_NONBLOCK;
-  s = fcntl(sfd, F_SETFL, flags);
-  if (s == -1)
-    {
-      perror("fcntl");
-      return -1;
-    }
-
-  return 0;
-}
-
-static int create_and_bind(char *port)
-{
-  struct addrinfo hints;
-  struct addrinfo *result, *rp;
-  int s, sfd;
-
-  memset(&hints, 0, sizeof (struct addrinfo));
-  hints.ai_family = AF_UNSPEC;     /* Return IPv4 and IPv6 choices */
-  hints.ai_socktype = SOCK_STREAM; /* We want a TCP socket */
-  hints.ai_flags = AI_PASSIVE;     /* All interfaces */
-
-  s = getaddrinfo(NULL, port, &hints, &result);
-  if (s != 0)
-    {
-      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-      return -1;
-    }
-
-  for (rp = result; rp != NULL; rp = rp->ai_next)
-    {
-      sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-      if (sfd == -1)
-        continue;
-
-      s = bind(sfd, rp->ai_addr, rp->ai_addrlen);
-      if (s == 0)
-          break;
-      close(sfd);
-    }
-
-  if (rp == NULL)
-    {
-      fprintf(stderr, "Could not bind\n");
-      return -1;
-    }
-
-  freeaddrinfo(result);
-
-  return sfd;
-}
 
 int main(int argc, char *argv[])
 {
@@ -81,6 +20,14 @@ int main(int argc, char *argv[])
   int so_rcvbuf = 0;
   struct epoll_event event;
   struct epoll_event *events;
+  struct edata {
+    int fd;
+    int content_length;
+    int content_offset;
+    char *header_buf;
+    int header_off;
+    int header_max;
+  };
 
   if (argc < 2 || argc > 3)
     {
@@ -99,10 +46,6 @@ int main(int argc, char *argv[])
   if (s == -1)
     abort();
 
-  int one = 1;
-  if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, (char*)
-		 &one, sizeof(one)) < 0)
-    abort();
   s = listen(sfd, SOMAXCONN);
   if (s == -1)
     {
@@ -117,7 +60,11 @@ int main(int argc, char *argv[])
       abort();
     }
 
-  event.data.fd = sfd;
+  struct edata *ed = malloc(sizeof(*ed));
+  ed->fd = sfd;
+  ed->header_buf = 0;
+
+  event.data.ptr = ed;
   event.events = EPOLLIN | EPOLLET;
   s = epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event);
   if (s == -1)
@@ -129,7 +76,6 @@ int main(int argc, char *argv[])
   /* Buffer where events are returned */
   events = calloc(MAXEVENTS, sizeof event);
 
-  int total_count = 0;
   /* The event loop */
   while (1)
     {
@@ -138,16 +84,27 @@ int main(int argc, char *argv[])
       n = epoll_wait(efd, events, MAXEVENTS, -1);
       for (i = 0; i < n; i++)
 	{
+	  struct edata *ed = events[i].data.ptr;
+	  int fd = ed->fd;
+
 	  if ((events[i].events & EPOLLERR) ||
               (events[i].events & EPOLLHUP) ||
               (!(events[i].events & EPOLLIN)))
 	    {
 	      fprintf(stderr, "epoll error\n");
-	      close(events[i].data.fd);
+
+	      s = epoll_ctl(efd, EPOLL_CTL_DEL, fd, 0);
+	      if (s == -1)
+		{
+		  perror("epoll_ctl");
+		  abort();
+		}
+	      close(fd);
+	      free(ed);
 	      continue;
 	    }
 
-	  else if (sfd == events[i].data.fd)
+	  else if (sfd == fd)
 	    {
               while (1)
                 {
@@ -192,7 +149,13 @@ int main(int argc, char *argv[])
                   s = make_socket_non_blocking(infd);
                   if (s == -1)
                     abort();
-                  event.data.fd = infd;
+		  ed = malloc(sizeof(*ed));
+		  ed->fd = infd;
+		  ed->content_length = -1;
+		  ed->header_max = 999;
+		  ed->header_buf = malloc(ed->header_max + 1);
+		  ed->header_off = 0;
+		  event.data.ptr = ed;
                   event.events = EPOLLIN | EPOLLET;
                   s = epoll_ctl(efd, EPOLL_CTL_ADD, infd, &event);
                   if (s == -1)
@@ -211,7 +174,16 @@ int main(int argc, char *argv[])
                   ssize_t count;
                   char buf[32768];
 
-                  count = read(events[i].data.fd, buf, sizeof buf);
+		  if (ed->content_length == -1)
+		    {
+		      count = read(fd, ed->header_buf + ed->header_off,
+				   ed->header_max - ed->header_off);
+
+		    }
+		  else
+		    {
+		      count = read(fd, buf, sizeof buf);
+		    }
                   if (count == -1)
                     {
                       if (errno != EAGAIN)
@@ -228,15 +200,76 @@ int main(int argc, char *argv[])
                     }
 		  else
 		    {
-		      total_count += count;
+		      if (ed->content_length == -1)
+			{
+			  const char *cp2;
+			  ed->header_off += count;
+			  ed->header_buf[ed->header_off] = '\0';
+			  cp2 = strstr(ed->header_buf, "\r\n\r\n");
+			  if (cp2)
+			    cp2 += 4;
+			  else if (!cp2)
+			    {
+			      cp2 = strstr(ed->header_buf, "\n\n");
+			      if (cp2)
+				cp2 += 2;
+			    }
+			  if (cp2) /* complete header? */
+			    {
+			      const char *cp1 =
+				strstr(ed->header_buf, "\nContent-Length:");
+			      if (cp1 && cp1 < cp2)
+				ed->content_length = atoi(cp1 + 16);
+			      else
+				ed->content_length = 0;
+			      ed->content_offset = ed->header_off -
+				(cp2 - ed->header_buf);
+			      printf("complete header length=%d\n",
+				     ed->content_length);
+			    }
+			  else
+			    {
+			      if (ed->header_off == ed->header_max)
+				{
+				  printf("Too big header\n");
+				  done = 1;
+				}
+			    }
+			}
+		      else
+			{
+			  ed->content_offset += count;
+			}
+		      if (ed->content_length != -1 &&
+			  ed->content_offset == ed->content_length)
+			{
+			  printf("Got all content %d\n",
+				 ed->content_length);
+			  done = 1;
+			}
 		    }
-
                 }
 
               if (done)
                 {
-                  printf("Closing descriptor %d\n", events[i].data.fd);
-                  close(events[i].data.fd);
+                  printf("Closing descriptor %d\n", fd);
+		  char buf[1000];
+
+		  strcpy(buf, "HTTP/1.0 200 OK\r\n"
+			 "Content-Length: 0\r\n"
+			 "Connection: Close\r\n"
+			 "\r\n\r\n");
+		  write(fd, buf, strlen(buf));
+
+                  s = epoll_ctl(efd, EPOLL_CTL_DEL, fd, 0);
+                  if (s == -1)
+                    {
+                      perror("epoll_ctl");
+                      abort();
+                    }
+                  close(fd);
+		  free(ed->header_buf);
+		  free(ed);
                 }
             }
         }

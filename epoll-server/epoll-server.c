@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
   int sfd, s;
   int efd;
   int so_rcvbuf = 0;
+  int verbose = 0;
   struct epoll_event event;
   struct epoll_event *events;
   struct edata {
@@ -135,8 +136,9 @@ int main(int argc, char *argv[])
 				  NI_NUMERICHOST | NI_NUMERICSERV);
                   if (s == 0)
                     {
-                      printf("Accepted connection on descriptor %d "
-                             "(host=%s, port=%s)\n", infd, hbuf, sbuf);
+		      if (verbose)
+			printf("Accepted connection on descriptor %d "
+			       "(host=%s, port=%s)\n", infd, hbuf, sbuf);
                     }
 
 		  if (so_rcvbuf)
@@ -218,14 +220,17 @@ int main(int argc, char *argv[])
 			    {
 			      const char *cp1 =
 				strstr(ed->header_buf, "\nContent-Length:");
+			      if (!cp1)
+				cp1 = strstr(ed->header_buf, "\nContent-length:");
 			      if (cp1 && cp1 < cp2)
 				ed->content_length = atoi(cp1 + 16);
 			      else
 				ed->content_length = 0;
 			      ed->content_offset = ed->header_off -
 				(cp2 - ed->header_buf);
-			      printf("complete header length=%d\n",
-				     ed->content_length);
+			      if (verbose)
+				printf("complete header length=%d\n",
+				       ed->content_length);
 			    }
 			  else
 			    {
@@ -243,8 +248,9 @@ int main(int argc, char *argv[])
 		      if (ed->content_length != -1 &&
 			  ed->content_offset == ed->content_length)
 			{
-			  printf("Got all content %d\n",
-				 ed->content_length);
+			  if (verbose)
+			    printf("Got all content %d\n",
+				   ed->content_length);
 			  done = 1;
 			}
 		    }
@@ -252,7 +258,8 @@ int main(int argc, char *argv[])
 
               if (done)
                 {
-                  printf("Closing descriptor %d\n", fd);
+		  if (verbose)
+		    printf("Closing descriptor %d\n", fd);
 		  char buf[1000];
 
 		  strcpy(buf, "HTTP/1.0 200 OK\r\n"

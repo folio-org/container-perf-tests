@@ -39,7 +39,7 @@ int create_and_bind(char *port)
 {
   struct addrinfo hints;
   struct addrinfo *result, *rp;
-  int s, sfd;
+  int pass, s, sfd;
 
   memset(&hints, 0, sizeof (struct addrinfo));
   hints.ai_family = AF_UNSPEC;     /* Return IPv4 and IPv6 choices */
@@ -53,34 +53,43 @@ int create_and_bind(char *port)
       return -1;
     }
 
-  for (rp = result; rp != NULL; rp = rp->ai_next)
-    {
-      sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-      if (sfd == -1)
-        continue;
+  for (pass = 0; pass < 2; pass++)
+    for (rp = result; rp; rp = rp->ai_next)
+      if ((pass == 0 && rp->ai_family == AF_INET6)
+	  || (pass == 1 && rp->ai_family != AF_INET6))
+	{
+	  sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	  if (sfd != -1)
+	    {
+	      pass = 2;
+	      break;
+	    }
+	}
 
+  if (rp == NULL)
+    {
+      sfd = -1;
+      abort();
+    }
+  else
+    {
       int one = 1;
       if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, (char*)
 		     &one, sizeof(one)) < 0)
 	{
 	  perror("setsockopt");
+	  close(sfd);
 	  abort();
 	}
-
-      s = bind(sfd, rp->ai_addr, rp->ai_addrlen);
-      if (s == 0)
-          break;
-      close(sfd);
+      if (bind(sfd, rp->ai_addr, rp->ai_addrlen))
+	{
+	  perror("bind");
+	  close(sfd);
+	  sfd = -1;
+	  abort();
+	}
     }
-
-  if (rp == NULL)
-    {
-      fprintf(stderr, "Could not bind\n");
-      return -1;
-    }
-
   freeaddrinfo(result);
-
   return sfd;
 }
 

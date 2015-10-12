@@ -1,12 +1,12 @@
-CFLAGS=-Wall
+CFLAGS=-Wall -O3
 
 all: epoll-server sync-server
 
 epoll-server: epoll-server.o common.o
-	$(CC) $? -o $@
+	$(CC) $^ -o $@
 
 sync-server: sync-server.o common.o
-	$(CC) $? -o $@
+	$(CC) $^ -o $@
 
 clean:
 	rm -f sync-server epoll-server *.o

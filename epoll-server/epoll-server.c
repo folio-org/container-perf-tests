@@ -228,6 +228,17 @@ int main(int argc, char *argv[])
 				ed->content_length = 0;
 			      ed->content_offset = ed->header_off -
 				(cp2 - ed->header_buf);
+
+			      if (ed->content_offset == 0)
+				{
+				  if (strstr(ed->header_buf,
+					     "\nExpect: 100-continue"))
+				    {
+				      char buf[64];
+				      strcpy(buf, "HTTP/1.1 100 Continue\r\n\r\n");
+				      write(fd, buf, strlen(buf));
+				    }
+				}
 			      if (verbose)
 				printf("complete header length=%d\n",
 				       ed->content_length);
@@ -265,7 +276,7 @@ int main(int argc, char *argv[])
 		  strcpy(buf, "HTTP/1.0 200 OK\r\n"
 			 "Content-Length: 0\r\n"
 			 "Connection: Close\r\n"
-			 "\r\n\r\n");
+			 "\r\n");
 		  write(fd, buf, strlen(buf));
 
                   s = epoll_ctl(efd, EPOLL_CTL_DEL, fd, 0);

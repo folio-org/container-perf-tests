@@ -2,6 +2,7 @@ package com.indexdata.vertx;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerOptions;
 
 public class PostVerticle extends AbstractVerticle {
   static class Counter {
@@ -12,11 +13,17 @@ public class PostVerticle extends AbstractVerticle {
    }
   @Override
   public void start() throws Exception {
-    HttpServer h = vertx.createHttpServer();
+    HttpServerOptions o = new HttpServerOptions();
+    o.setHandle100ContinueAutomatically(false);
+
+    HttpServer h = vertx.createHttpServer(o);
     h.requestHandler(req -> {
       Buffer totalBuffer = Buffer.buffer();
       final Counter sz = new Counter(0);
       String s = req.getHeader("Content-Type");
+      if ("100-continue".equals(req.getHeader("Expect"))) {
+        req.response().writeContinue();
+      }
       req.handler(buffer -> {
         sz.x += buffer.length();
       });

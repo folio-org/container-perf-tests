@@ -1,0 +1,8 @@
+[package]
+name = "upload-rust"
+version = "0.1.0"
+authors = ["Adam Dickmeiss <adam@indexdata.dk>"]
+
+[dependencies]
+hyper = "0.6.15"
+env_logger = "0.3.2"
